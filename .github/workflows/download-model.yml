@@ -4,20 +4,17 @@ on: workflow_dispatch
 jobs:
   download:
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
       
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      
       - name: Download model files
         run: |
           pip install huggingface_hub
-          huggingface-cli download Qwen/Qwen2-VL-7B-Instruct --local-dir . --local-dir-use-symlinks False
+          hf download Qwen/Qwen2-VL-7B-Instruct --local-dir . --local-dir-use-symlinks False
       
       - name: Commit and push
         run: |
