@@ -67,7 +67,7 @@ jobs:
               ]}
           ]
           
-          inputs = processor.apply_chat_template(messages, return_tensors="pt")
+          inputs = processor.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
           
           with torch.no_grad():
               generated_ids = model.generate(
