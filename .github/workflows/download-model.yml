@@ -5,9 +5,14 @@ jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       
       - name: Download model files
         run: |
@@ -19,5 +24,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add .
-          git commit -m "Download Qwen2-VL model from Hugging Face" || echo "No changes to commit"
+          git commit -m "Download Qwen2-VL model from Hugging Face" || echo "No changes"
           git push
