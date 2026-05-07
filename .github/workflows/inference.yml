@@ -32,7 +32,7 @@ jobs:
       
       - name: Analyze photo
         run: |
-          pip install transformers Pillow requests torch --quiet
+          pip install transformers Pillow requests torch accelerate --quiet
           
           python3 << 'PYEOF'
           from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
