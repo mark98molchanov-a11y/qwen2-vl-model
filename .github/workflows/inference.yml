@@ -54,6 +54,10 @@ jobs:
         run: |
           pip install transformers Pillow requests torch accelerate torchvision --quiet
           
+          # Проверяем фото
+          echo "Testing photo URL..."
+          curl -I "${{ inputs.photo_url }}" || echo "Photo not accessible"
+          
           python3 << 'PYEOF'
           from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
           from PIL import Image
@@ -69,10 +73,18 @@ jobs:
           photo_url = os.environ['PHOTO_URL']
           prompt = os.environ['PROMPT']
           
-          print(f"📸 Downloading photo...")
+          print(f"📸 Downloading photo: {photo_url}")
           response = requests.get(photo_url, timeout=30)
-          image = Image.open(BytesIO(response.content))
-          print("✅ Photo loaded!")
+          print(f"   Status: {response.status_code}")
+          print(f"   Content-Type: {response.headers.get('Content-Type', 'unknown')}")
+          print(f"   Size: {len(response.content)} bytes")
+          
+          # Сохраняем и открываем
+          with open('/tmp/photo.jpg', 'wb') as f:
+              f.write(response.content)
+          
+          image = Image.open('/tmp/photo.jpg')
+          print(f"   Image size: {image.size}")
           
           messages = [
               {'role': 'user', 'content': [
