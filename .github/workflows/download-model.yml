@@ -16,14 +16,16 @@ jobs:
           cd model
           for f in model-*.safetensors; do
             size=$(stat -c%s "$f" 2>/dev/null || echo 0)
-            if [ $size -gt 1990000000 ]; then
-              echo "Splitting $f (${size} bytes)..."
+            echo "File: $f, Size: $size"
+            if [ "$size" -gt 1990000000 ]; then
+              echo ">>> SPLITTING $f (${size} bytes) <<<"
               split -b 1900M "$f" "../parts/${f}.part_"
             else
               cp "$f" ../parts/
             fi
           done
           cp *.json *.txt *.md ../parts/ 2>/dev/null
+          echo "Files in parts:"
           ls -la ../parts/
       
       - name: Upload to Release
