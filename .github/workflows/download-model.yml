@@ -11,6 +11,12 @@ jobs:
         with:
           lfs: true
       
+      - name: Setup Git LFS
+        run: |
+          git lfs install
+          git lfs track "*.safetensors"
+          git lfs track "*.bin"
+      
       - name: Download model files
         run: |
           pip install huggingface_hub
@@ -20,6 +26,7 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
+          git add .gitattributes
           git add .
           git commit -m "Download Qwen2-VL model from Hugging Face" || echo "No changes"
           git push
