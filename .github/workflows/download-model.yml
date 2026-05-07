@@ -1,4 +1,4 @@
-name: Download Model from Hugging Face
+name: Download Model to Releases
 on: workflow_dispatch
 
 jobs:
@@ -7,15 +7,15 @@ jobs:
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
-      - name: Download model files
+      - name: Download model from Hugging Face
         run: |
           pip install huggingface_hub
           hf download Qwen/Qwen2-VL-7B-Instruct --local-dir ./model
       
-      - name: Split large files
+      - name: Split large files into parts
         run: |
+          mkdir -p parts
           cd model
-          mkdir -p ../parts
           for f in model-*.safetensors; do
             size=$(stat -c%s "$f" 2>/dev/null || echo 0)
             if [ $size -gt 1990000000 ]; then
@@ -25,17 +25,18 @@ jobs:
               cp "$f" ../parts/
             fi
           done
-          # Копируем остальные файлы
+          # Copy small files
           for f in *.json *.txt; do
             [ -f "$f" ] && cp "$f" ../parts/
           done
+          echo "Files in parts:"
           ls -la ../parts/
       
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0
-          name: "Qwen2-VL-7B-Instruct Model"
+          name: "Qwen2-VL-7B-Instruct"
           files: parts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
