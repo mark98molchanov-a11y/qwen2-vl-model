@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       photo_url:
-        description: 'URL фото'
+        description: 'Photo URL'
         required: true
       prompt:
-        description: 'Промпт'
+        description: 'Prompt'
         required: true
 
 jobs:
