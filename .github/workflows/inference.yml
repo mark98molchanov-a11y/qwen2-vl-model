@@ -34,29 +34,16 @@ jobs:
           wget -q https://github.com/mark98molchanov-a11y/qwen2-vl-model/releases/download/v2b/model-00001-of-00002.safetensors.part_ac
           wget -q https://github.com/mark98molchanov-a11y/qwen2-vl-model/releases/download/v2b/model-00002-of-00002.safetensors
           
-          echo "📊 Parts downloaded:"
-          ls -lh model-*.part_* model-00002-*.safetensors 2>/dev/null
-          
           # Assemble ALL THREE parts
-          echo "🔧 Assembling model-00001-of-00002..."
           cat model-00001-of-00002.safetensors.part_aa \
               model-00001-of-00002.safetensors.part_ab \
               model-00001-of-00002.safetensors.part_ac \
               > model-00001-of-00002.safetensors
-          
-          echo "✅ Assembled size: $(du -h model-00001-of-00002.safetensors | cut -f1)"
           rm model-00001-of-00002.safetensors.part_*
-          
-          echo "📂 All files ready:"
-          ls -la
       
       - name: Analyze photo
         run: |
           pip install transformers Pillow requests torch accelerate torchvision --quiet
-          
-          # Проверяем фото
-          echo "Testing photo URL..."
-          curl -I "${{ inputs.photo_url }}" || echo "Photo not accessible"
           
           python3 << 'PYEOF'
           from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
@@ -65,26 +52,26 @@ jobs:
           import os
           from io import BytesIO
           
-          print("🔄 Loading model...")
           model = Qwen2VLForConditionalGeneration.from_pretrained('.', device_map='cpu')
           processor = AutoProcessor.from_pretrained('.')
-          print("✅ Model loaded!")
           
           photo_url = os.environ['PHOTO_URL']
           prompt = os.environ['PROMPT']
           
-          print(f"📸 Downloading photo: {photo_url}")
-          response = requests.get(photo_url, timeout=30)
-          print(f"   Status: {response.status_code}")
-          print(f"   Content-Type: {response.headers.get('Content-Type', 'unknown')}")
-          print(f"   Size: {len(response.content)} bytes")
+          # Пробуем скачать с разными заголовками
+          headers = {"User-Agent": "Mozilla/5.0", "Accept": "image/*"}
+          response = requests.get(photo_url, headers=headers, timeout=30)
           
-          # Сохраняем и открываем
-          with open('/tmp/photo.jpg', 'wb') as f:
-              f.write(response.content)
+          # Если 404 — пробуем через GitHub API
+          if response.status_code != 200:
+              api_url = photo_url.replace('raw.githubusercontent.com', 'api.github.com/repos').replace('/main/', '/contents/')
+              print(f"Trying API: {api_url}")
+              api_resp = requests.get(api_url, headers={"Authorization": f"token {os.environ['GH_TOKEN']}"}, timeout=30)
+              if api_resp.status_code == 200:
+                  import base64
+                  response._content = base64.b64decode(api_resp.json()['content'])
           
-          image = Image.open('/tmp/photo.jpg')
-          print(f"   Image size: {image.size}")
+          image = Image.open(BytesIO(response.content))
           
           messages = [
               {'role': 'user', 'content': [
@@ -93,7 +80,6 @@ jobs:
               ]}
           ]
           
-          print("🤖 Running inference...")
           inputs = processor.apply_chat_template(messages, return_tensors='pt')
           outputs = model.generate(**inputs, max_new_tokens=500)
           result = processor.decode(outputs[0], skip_special_tokens=True)
@@ -106,3 +92,4 @@ jobs:
         env:
           PHOTO_URL: ${{ inputs.photo_url }}
           PROMPT: ${{ inputs.prompt }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
