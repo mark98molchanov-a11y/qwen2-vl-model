@@ -15,7 +15,6 @@ jobs:
     steps:
       - name: Download model from Release
         run: |
-          echo "📥 Downloading model files..."
           wget -q https://github.com/mark98molchanov-a11y/qwen2-vl-model/releases/download/v2b/config.json
           wget -q https://github.com/mark98molchanov-a11y/qwen2-vl-model/releases/download/v2b/tokenizer.json
           wget -q https://github.com/mark98molchanov-a11y/qwen2-vl-model/releases/download/v2b/tokenizer_config.json
@@ -49,34 +48,20 @@ jobs:
           photo_url = os.environ['PHOTO_URL']
           prompt = os.environ['PROMPT']
           
-          headers = {"User-Agent": "Mozilla/5.0", "Accept": "image/*"}
-          response = requests.get(photo_url, headers=headers, timeout=30)
+          resp = requests.get(photo_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
           
-          if response.status_code != 200:
+          if resp.status_code != 200:
               api_url = photo_url.replace('raw.githubusercontent.com', 'api.github.com/repos').replace('/main/', '/contents/')
               api_resp = requests.get(api_url, headers={"Authorization": f"token {os.environ['GH_TOKEN']}"}, timeout=30)
               if api_resp.status_code == 200:
-                  response._content = base64.b64decode(api_resp.json()['content'])
+                  resp._content = base64.b64decode(api_resp.json()['content'])
           
-          image = Image.open(BytesIO(response.content))
+          image = Image.open(BytesIO(resp.content))
           
-          messages = [
-              {'role': 'user', 'content': [
-                  {'type': 'image', 'image': image},
-                  {'type': 'text', 'text': prompt}
-              ]}
-          ]
-          
-          inputs = processor.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
+          inputs = processor(text=prompt, images=image, return_tensors="pt")
           
           with torch.no_grad():
-              generated_ids = model.generate(
-                  input_ids=inputs['input_ids'],
-                  attention_mask=inputs.get('attention_mask'),
-                  pixel_values=inputs.get('pixel_values'),
-                  max_new_tokens=500,
-                  do_sample=False
-              )
+              generated_ids = model.generate(**inputs, max_new_tokens=500)
           
           result = processor.decode(generated_ids[0], skip_special_tokens=True)
           
