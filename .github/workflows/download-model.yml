@@ -11,22 +11,28 @@ jobs:
         with:
           lfs: true
       
-      - name: Setup Git LFS
-        run: |
-          git lfs install
-          git lfs track "*.safetensors"
-          git lfs track "*.bin"
-      
       - name: Download model files
         run: |
           pip install huggingface_hub
           hf download Qwen/Qwen2-VL-7B-Instruct --local-dir .
       
+      - name: Split large files
+        run: |
+          # Разбиваем файлы больше 2 GB на части по 1.9 GB
+          for f in model-*.safetensors; do
+            if [ $(stat -c%s "$f") -gt 2000000000 ]; then
+              echo "Splitting $f ($(du -h $f | cut -f1))..."
+              split -b 1900M "$f" "${f}.part_"
+              rm "$f"  # Удаляем оригинал
+              # Добавляем .gitignore для частей
+              echo "${f}.part_*" >> .gitignore
+            fi
+          done
+      
       - name: Commit and push
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add .gitattributes
           git add .
           git commit -m "Download Qwen2-VL model from Hugging Face" || echo "No changes"
           git push
