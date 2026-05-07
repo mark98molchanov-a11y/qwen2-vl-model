@@ -2,8 +2,8 @@ name: Photo Analysis
 on:
   workflow_dispatch:
     inputs:
-      photo_url:
-        description: 'Photo URL'
+      photo_urls:
+        description: 'Photo URLs (JSON array)'
         required: true
       prompt:
         description: 'Prompt'
@@ -31,54 +31,46 @@ jobs:
           cat model-00001-of-00002.safetensors.part_aa model-00001-of-00002.safetensors.part_ab model-00001-of-00002.safetensors.part_ac > model-00001-of-00002.safetensors
           rm model-00001-of-00002.safetensors.part_*
       
-      - name: Analyze photo
+      - name: Analyze photos
         run: |
           pip install transformers Pillow requests torch accelerate torchvision --quiet
           
           python3 << 'PYEOF'
           from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
           from PIL import Image
-          import requests, os, base64
+          import requests, os, base64, json
           from io import BytesIO
           import torch
           
           model = Qwen2VLForConditionalGeneration.from_pretrained('.', device_map='cpu')
           processor = AutoProcessor.from_pretrained('.')
           
-          photo_url = os.environ['PHOTO_URL']
           prompt = os.environ['PROMPT']
+          photo_urls = json.loads(os.environ['PHOTO_URLS'])
           
-          resp = requests.get(photo_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
-          if resp.status_code != 200:
-              api_url = photo_url.replace('raw.githubusercontent.com', 'api.github.com/repos').replace('/main/', '/contents/')
-              api_resp = requests.get(api_url, headers={"Authorization": f"token {os.environ['GH_TOKEN']}"}, timeout=30)
-              if api_resp.status_code == 200:
-                  resp._content = base64.b64decode(api_resp.json()['content'])
+          images = []
+          for url in photo_urls:
+              resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+              if resp.status_code == 200:
+                  images.append(Image.open(BytesIO(resp.content)))
           
-          image = Image.open(BytesIO(resp.content))
+          content = [{"type": "text", "text": prompt}]
+          for img in images:
+              content.append({"type": "image", "image": img})
           
-          # Правильный вызов с chat_template
-          messages = [
-              {"role": "user", "content": [
-                  {"type": "image", "image": image},
-                  {"type": "text", "text": prompt}
-              ]}
-          ]
+          messages = [{"role": "user", "content": content}]
           
           text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-          inputs = processor(text=text, images=image, return_tensors="pt")
+          inputs = processor(text=text, images=images, return_tensors="pt")
           
           with torch.no_grad():
               generated_ids = model.generate(**inputs, max_new_tokens=500)
           
           result = processor.decode(generated_ids[0], skip_special_tokens=True)
           
-          print("=" * 60)
-          print("RESULT:")
           print(result)
-          print("=" * 60)
           PYEOF
         env:
-          PHOTO_URL: ${{ inputs.photo_url }}
+          PHOTO_URLS: ${{ inputs.photo_urls }}
           PROMPT: ${{ inputs.prompt }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
