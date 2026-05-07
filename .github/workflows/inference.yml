@@ -20,7 +20,7 @@ jobs:
             *.json
             *.txt
             *.safetensors
-          key: qwen2-vl-v2b-opt
+          key: qwen2-vl-v2b-opt-v2
 
       - name: Download model (if not cached)
         run: |
@@ -53,15 +53,11 @@ jobs:
           from io import BytesIO
           import torch
           
-          # Оптимизация 1: float32 + torch.compile
           model = Qwen2VLForConditionalGeneration.from_pretrained(
               '.',
               device_map='cpu',
               torch_dtype=torch.float32
           )
-          # Оптимизация 2: JIT-компиляция
-          model = torch.compile(model, mode="reduce-overhead")
-          
           processor = AutoProcessor.from_pretrained('.')
           
           prompt = os.environ['PROMPT']
@@ -87,7 +83,6 @@ jobs:
           inputs = processor(text=text, images=images, return_tensors="pt")
           
           with torch.no_grad():
-              # Оптимизация 3: уменьшаем токены + жадный поиск
               generated_ids = model.generate(
                   **inputs,
                   max_new_tokens=250,
