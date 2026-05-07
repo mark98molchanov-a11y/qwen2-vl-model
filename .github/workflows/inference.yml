@@ -1,0 +1,41 @@
+name: Photo Analysis
+on:
+  workflow_dispatch:
+    inputs:
+      photo_url:
+        description: 'URL фото'
+        required: true
+      prompt:
+        description: 'Промпт'
+        required: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Analyze photo
+        run: |
+          pip install huggingface_hub transformers Pillow requests torch
+          hf download Qwen/Qwen2-VL-2B-Instruct --local-dir ./model
+          
+          python -c "
+          from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+          from PIL import Image
+          import requests
+          
+          model = Qwen2VLForConditionalGeneration.from_pretrained('./model', device_map='cpu')
+          processor = AutoProcessor.from_pretrained('./model')
+          
+          image = Image.open(requests.get('${{ inputs.photo_url }}', stream=True).raw)
+          
+          messages = [
+              {'role': 'user', 'content': [
+                  {'type': 'image', 'image': image},
+                  {'type': 'text', 'text': '${{ inputs.prompt }}'}
+              ]}
+          ]
+          
+          inputs = processor.apply_chat_template(messages, return_tensors='pt')
+          outputs = model.generate(**inputs, max_new_tokens=500)
+          print(processor.decode(outputs[0], skip_special_tokens=True))
+          "
