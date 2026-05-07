@@ -59,6 +59,7 @@ jobs:
           from PIL import Image
           import requests
           import os
+          from io import BytesIO
           
           print("🔄 Loading model...")
           model = Qwen2VLForConditionalGeneration.from_pretrained('.', device_map='cpu')
@@ -68,8 +69,10 @@ jobs:
           photo_url = os.environ['PHOTO_URL']
           prompt = os.environ['PROMPT']
           
-          print(f"📸 Analyzing photo...")
-          image = Image.open(requests.get(photo_url, stream=True).raw)
+          print(f"📸 Downloading photo...")
+          response = requests.get(photo_url, timeout=30)
+          image = Image.open(BytesIO(response.content))
+          print("✅ Photo loaded!")
           
           messages = [
               {'role': 'user', 'content': [
